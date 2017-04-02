@@ -23,16 +23,21 @@
  */
 define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/custom_interaction_events',
         'core/auto_rows', 'core_message/message_area_actions', 'core/modal_factory', 'core/modal_events',
-        'core/str', 'core_message/message_area_events', 'core/backoff_timer'],
+        'core/str', 'core_message/message_area_events', 'core/backoff_timer','core/yui','core/toastr','core/pusher'],
     function($, Ajax, Templates, Notification, CustomEvents, AutoRows, Actions, ModalFactory,
-             ModalEvents, Str, Events, BackOffTimer) {
+             ModalEvents, Str, Events, BackOffTimer,Y,toastr,Pusher) {
 
         /** @type {int} The message area default height. */
         var MESSAGES_AREA_DEFAULT_HEIGHT = 500;
 
         /** @type {int} The response default height. */
         var MESSAGES_RESPONSE_DEFAULT_HEIGHT = 50;
-
+        /*  providing the path to the auth endpoint file */
+        var pusher = new Pusher("",{ authEndpoint: '/moodle/message/auth.php'} ) ;
+        var channel =pusher.subscribe('private-messages');
+        channel.bind('client-message',newmessage);
+        /** defining the current user id to be a global variable **/
+        var curruserid=0;
         /** @type {Object} The list of selectors for the message area. */
         var SELECTORS = {
             BLOCKTIME: "[data-region='blocktime']",
@@ -63,6 +68,8 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/cust
          */
         function Messages(messageArea) {
             this.messageArea = messageArea;
+            /** setting the current user id **/
+            curruserid=this.messageArea.getCurrentUserId();
             this._init();
         }
 
@@ -395,9 +402,10 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/cust
                     ]
                 }
             }]);
-
+            /** triggering the client event **/
+            /** data dictionary consists of the current and the id of user to whom message is to be sent **/
+            var trigger = channel.trigger('client-message',{touser_id : this._getUserId(),user_id:curruserid});
             element.prop('disabled', true);
-
             // Update the DOM when we get some data back.
             return promises[0].then(function(response) {
                 if (response.length < 0) {
@@ -871,5 +879,12 @@ define(['jquery', 'core/ajax', 'core/templates', 'core/notification', 'core/cust
         };
 
         return Messages;
+        function newmessage(data){
+            /*checking whether the current user is the one whom the message should be recieved to */
+            if (curruserid==data.touser_id){
+                toastr.success('Recieved a new message from ');
+            }
+
+        }
     }
 );
